@@ -1,0 +1,283 @@
+## Diagnostics for fitted proxies.
+
+#' Per-iteration KLD trace of a fit
+#'
+#' Returns the per-iteration estimate of `KL(f || g_theta)` produced during
+#' a regime-(iii) fit, or `NA` for regimes that do not estimate the KLD
+#' internally.
+#'
+#' @param fit A [gmm_fit].
+#'
+#' @returns Numeric vector (or `NA_real_`).
+#' @family diagnostics
+#' @export
+#' @examples
+#' fit <- fit_proxymix(banana_target(), N = 2L, regime = "kld",
+#'                     is_size = 1000L, max_iter = 15L, seed = 1L)
+#' kld_trace(fit)
+kld_trace <- function(fit) {
+  if (!S7::S7_inherits(fit, gmm_fit)) {
+    cli::cli_abort("`fit` must be a {.cls gmm_fit}.")
+  }
+  fit@diagnostics$kld_trace %||% NA_real_
+}
+
+#' Effective sample size of the importance-sampling weights
+#'
+#' Returns the effective sample size (`1 / sum(W^2)`) of the
+#' self-normalised importance weights used by a regime-(iii) fit. `NA` for
+#' regimes that do not use importance sampling.
+#'
+#' @param fit A [gmm_fit].
+#'
+#' @returns Numeric scalar (or `NA_real_`).
+#' @family diagnostics
+#' @export
+#' @examples
+#' fit <- fit_proxymix(banana_target(), N = 2L, regime = "kld",
+#'                     is_size = 1000L, max_iter = 15L, seed = 1L)
+#' ess_trace(fit)
+ess_trace <- function(fit) {
+  if (!S7::S7_inherits(fit, gmm_fit)) {
+    cli::cli_abort("`fit` must be a {.cls gmm_fit}.")
+  }
+  fit@diagnostics$ess %||% NA_real_
+}
+
+#' Monte-Carlo Hellinger distance between a fit and its target
+#'
+#' Estimates the squared Hellinger distance `H^2(f, g) = 1 - integral
+#' sqrt(f(x) g(x)) dx` as `1 - mean(sqrt(f(x) / g(x)))` over `n_mc` fresh
+#' draws `x` from the fit `g`, for every regime. The draws are independent of
+#' any sample used to fit, so the estimate is unbiased, with standard error
+#' `se`. The target's `log_density` must be supplied **and normalised**;
+#' otherwise the Monte Carlo integral is biased by the missing
+#' \eqn{\sqrt{Z(f)}}. When the target's `normalised` property is not `TRUE`,
+#' a warning is issued and the returned value is flagged.
+#'
+#' @param fit A [gmm_fit] whose target carries a `log_density`.
+#' @param n_mc Number of Monte Carlo draws from the fit.
+#' @param seed Optional integer seed for the draws.
+#'
+#' @returns A list with components
+#'   * `h2` - estimate of `H^2(f, g)`,
+#'   * `se` - Monte Carlo standard error,
+#'   * `n_mc` - number of draws with a finite density ratio,
+#'   * `trustworthy` - `TRUE` when the target is declared normalised.
+#' @family diagnostics
+#' @export
+#' @examples
+#' fit <- fit_proxymix(banana_target(), N = 3L, regime = "kld",
+#'                     is_size = 2000L, max_iter = 25L, seed = 1L)
+#' hellinger_mc(fit, n_mc = 1000L, seed = 1L)
+hellinger_mc <- function(fit, n_mc = 5000L, seed = NULL) {
+  if (!S7::S7_inherits(fit, gmm_fit)) {
+    cli::cli_abort("`fit` must be a {.cls gmm_fit}.")
+  }
+  tgt <- fit@target
+  if (is.null(tgt) || is.null(tgt@log_density)) {
+    cli::cli_abort("`fit@target@log_density` must be supplied for a Hellinger estimate.")
+  }
+  trustworthy <- isTRUE(tgt@normalised)
+  if (!trustworthy) {
+    cli::cli_warn(c(
+      "Target is not declared {.code normalised = TRUE}; Hellinger estimate is biased.",
+      "i" = "Set {.code normalised = TRUE} on the target (or supply {.code log_normalizer}) for a meaningful H^2."
+    ))
+  }
+
+  n <- as.integer(n_mc)
+  x <- if (is.null(seed)) rgmm(n, fit) else withr::with_seed(seed, rgmm(n, fit))
+  ## integral sqrt(f g) dx = E_g[sqrt(f / g)], with x ~ g.
+  ratio <- exp(0.5 * (tgt@log_density(x) - dgmm(x, fit, log = TRUE)))
+  finite <- is.finite(ratio)
+  n_used <- sum(finite)
+  h2 <- 1 - mean(ratio[finite])
+  se <- stats::sd(ratio[finite]) / sqrt(n_used)
+  list(h2 = h2, se = se, n_mc = n_used, trustworthy = trustworthy)
+}
+
+#' Summary of importance-sampling diagnostics
+#'
+#' Convenience accessor returning the headline IS-quality numbers for a
+#' regime-(iii) fit: effective sample size and its ratio to `is_size`,
+#' the largest self-normalised weight, the support fraction (proportion
+#' of draws that received a finite weight), and the Monte-Carlo standard
+#' error of the final KLD estimate. Returns `NA` fields for regimes that
+#' do not use importance sampling.
+#'
+#' Validation-side numbers (`validation_*`) are populated only when the
+#' fit was called with `validation_size > 0`.
+#'
+#' @param fit A [gmm_fit].
+#'
+#' @returns A list of numeric scalars (or `NA`s where not applicable), plus a
+#'   logical `support_truncated` flag that is `TRUE` when the fit's auto-selected
+#'   proposal replaced an unbounded target-support end with a finite,
+#'   data-derived working box (so `support_fraction` reflects only that finite
+#'   region and the target tail beyond it was not sampled). The finite box
+#'   itself is recorded in `fit@diagnostics$working_bounds`.
+#' @family diagnostics
+#' @export
+#' @examples
+#' fit <- fit_proxymix(banana_target(), N = 3L, regime = "kld",
+#'                     is_size = 1500L, max_iter = 20L, seed = 1L,
+#'                     validation_size = 1500L)
+#' ess_summary(fit)
+ess_summary <- function(fit) {
+  if (!S7::S7_inherits(fit, gmm_fit)) {
+    cli::cli_abort("`fit` must be a {.cls gmm_fit}.")
+  }
+  d <- fit@diagnostics
+  list(
+    is_size                   = d$is_size %||% NA_integer_,
+    ess                       = d$ess %||% NA_real_,
+    ess_relative              = d$ess_relative %||% NA_real_,
+    max_weight                = d$max_weight %||% NA_real_,
+    support_fraction          = d$support_fraction %||% NA_real_,
+    support_truncated         = d$support_truncated %||% NA,
+    mc_se_kld                 = d$mc_se_kld %||% NA_real_,
+    validation_size           = d$validation_size %||% NA_integer_,
+    validation_ess            = d$validation_ess %||% NA_real_,
+    validation_ess_relative   = d$validation_ess_relative %||% NA_real_,
+    validation_max_weight     = d$validation_max_weight %||% NA_real_,
+    validation_support_fraction = d$validation_support_fraction %||% NA_real_,
+    validation_kld            = d$validation_kld %||% NA_real_
+  )
+}
+
+#' The quality certificate of a fit or derived mixture
+#'
+#' Returns the fit-quality certificate: a small list recording the fitting
+#' regime, convergence, degeneracy, the effective-sample-size profile of
+#' the importance weights, and (when a validation split was drawn) the
+#' held-out validation gap. The certificate is stamped into the object's
+#' metadata at fit time and carried through every closed-form operator: a
+#' unary operator (marginal, conditional, affine map, Bayes update) preserves
+#' it unchanged, and an operator with several operands (product, convolution,
+#' mixing) combines their certificates conservatively -- worst-case of each
+#' field, with the individual per-operand certificates retained under
+#' `quality_sources` and `regime` set to `"composite"`. It can therefore be
+#' read off a marginal, a conditional, a product, a filtered belief, or any
+#' other derived mixture -- alongside the `provenance` vector recording the
+#' chain of operations that produced it.
+#'
+#' Downstream verbs read the same certificate and raise a one-shot
+#' advisory (class `proxymix_low_quality`) when the source fit is flagged. A
+#' fit is flagged when it did not converge, when it is degenerate (fewer
+#' effective importance draws than `min_ess`), or when its held-out KL
+#' divergence `heldout_kld` exceeds 0.3 nats. A fit made with
+#' `validation_size = 0` has no held-out estimate, and is flagged when
+#' `kld_approx` exceeds 0.3. That fallback misses a proxy wider than the
+#' target, because such a proxy can keep `kld_approx` below 0.3 while its KL
+#' divergence is large. Relative ESS is not used: with a fixed proposal it
+#' describes the proposal, not the fit, and stays the same however good the
+#' fit is.
+#'
+#' @param g A [gmm] or [gmm_fit].
+#'
+#' @returns A list with elements `regime`, `converged`, `degenerate`,
+#'   `ess`, `ess_relative`, `min_component_ess`, `max_weight`,
+#'   `support_fraction`, `kld_final`, `kld_approx`, `validation_gap`, and
+#'   `heldout_kld` (fields not applicable to the regime are `NA`), or `NULL`
+#'   for a mixture that was never fitted (e.g. built directly with [gmm()]).
+#'   A certificate produced by an operator over several operands has
+#'   `regime = "composite"`, the conservative worst-case value of each numeric field across the
+#'   operands, and an additional `quality_sources` element holding the
+#'   operands' own certificates. `kld_final` is estimated on the importance
+#'   draws the fit was tuned to, so it reads low; `validation_gap` is the
+#'   held-out `validation_kld` (see [ess_summary()]) minus `kld_final`, and is
+#'   `NA` when the fit was made with `validation_size = 0`. `heldout_kld` is
+#'   the KL divergence from the target to the proxy estimated on the
+#'   validation draws. For a target with an unknown normalising constant it
+#'   is `validation_kld` minus a log normalising constant estimated from the
+#'   same draws. `kld_approx` is half the importance-weighted variance of
+#'   `log f - log g` over the fitting draws. It approximates the KL
+#'   divergence only when the proxy is close to the target, and it does not
+#'   depend on the target's normalising constant. Both are `NA` outside
+#'   regime `"kld"`.
+#' @family diagnostics
+#' @export
+#' @examples
+#' fit <- fit_proxymix(banana_target(), N = 2L, regime = "kld",
+#'                     is_size = 1500L, max_iter = 15L, seed = 1L)
+#' gmm_fit_quality(fit)
+#' ## The certificate survives the operator calculus.
+#' gmm_fit_quality(gmm_marginalise(fit, keep = 1L))
+gmm_fit_quality <- function(g) {
+  if (!S7::S7_inherits(g, gmm)) {
+    cli::cli_abort("`g` must be a {.cls gmm} (or {.cls gmm_fit}).")
+  }
+  g@metadata$quality
+}
+
+#' Information criteria: BIC, AIC, and ICL
+#'
+#' Returns the Bayesian and Akaike information criteria of a regime-(ii) fit,
+#' together with the integrated completed likelihood (ICL). All three are
+#' computed against the *empirical* log-likelihood of the samples used to fit
+#' the model and are reported on the same scale (smaller is better). They are
+#' `NA` for regimes that do not have an empirical likelihood (`"moment"`,
+#' `"kld"`).
+#'
+#' The ICL of Biernacki, Celeux and Govaert (2000) adds to the BIC twice the
+#' entropy of the fitted classification,
+#' \eqn{\mathrm{ICL} = \mathrm{BIC} + 2 E_N}, where
+#' \eqn{E_N = -\sum_{i,k} \gamma_{ik} \log \gamma_{ik} \ge 0} is the entropy of
+#' the responsibilities \eqn{\gamma_{ik}}. It therefore penalises mixtures whose
+#' components overlap (uncertain assignments), and favours well-separated
+#' clustering solutions over the merely best-fitting ones. Because
+#' \eqn{E_N \ge 0}, the ICL is never smaller than the BIC, and the two coincide
+#' for a single component (\eqn{K = 1}), where every responsibility is one. The
+#' classification entropy itself is returned as `classification_entropy`.
+#'
+#' @param fit A [gmm_fit].
+#'
+#' @returns A list with `bic`, `aic`, `icl`, `classification_entropy`, and
+#'   `n_params`.
+#' @family diagnostics
+#' @references Biernacki, C., Celeux, G. and Govaert, G. (2000) Assessing a
+#'   mixture model for clustering with the integrated completed likelihood.
+#'   *IEEE Transactions on Pattern Analysis and Machine Intelligence* 22(7),
+#'   719--725. \doi{10.1109/34.865189}
+#' @export
+#' @examples
+#' x <- matrix(stats::rnorm(200), ncol = 2)
+#' tgt <- gmm_target_from_samples(x)
+#' fit <- fit_proxymix(tgt, N = 2L, regime = "sample", max_iter = 25L)
+#' bic_aic(fit)
+bic_aic <- function(fit) {
+  if (!S7::S7_inherits(fit, gmm_fit)) {
+    cli::cli_abort("`fit` must be a {.cls gmm_fit}.")
+  }
+  bic <- fit@diagnostics$bic %||% NA_real_
+  aic <- fit@diagnostics$aic %||% NA_real_
+  n_params <- fit@diagnostics$n_params %||% NA_integer_
+
+  ## ICL = BIC + 2 E_N, with the classification entropy
+  ##   E_N = -sum_{i,k} gamma_ik log gamma_ik   (0 log 0 = 0).
+  ## Defined for the sample regime, where the responsibilities are over the
+  ## fitted samples; NA elsewhere, matching the BIC / AIC policy.
+  en <- NA_real_
+  icl <- NA_real_
+  if (identical(fit@regime, "sample") && !is.null(fit@target) &&
+        !is.null(fit@target@samples) && is.finite(bic)) {
+    samples <- fit@target@samples
+    log_unnorm <- gmm_log_unnorm(samples, fit@weights, fit@means,
+                                 fit@covariances)
+    log_resp <- log_unnorm - logsumexp_rows(log_unnorm)
+    resp <- exp(log_resp)
+    en <- -sum(resp * log_resp, na.rm = TRUE)
+    icl <- bic + 2 * en
+  }
+
+  list(
+    bic = bic,
+    aic = aic,
+    icl = icl,
+    classification_entropy = en,
+    n_params = n_params
+  )
+}
+
+`%||%` <- function(a, b) if (is.null(a)) b else a

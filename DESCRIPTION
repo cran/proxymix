@@ -1,0 +1,52 @@
+Package: proxymix
+Type: Package
+Title: Kullback-Leibler Optimal Gaussian Mixture Proxies for Target
+        Densities
+Version: 0.16.0
+Authors@R: c(
+    person(given = "Max",
+           family = "Moldovan",
+           role = c("aut", "cre"),
+           email = "max.moldovan@gmail.com",
+           comment = c(ORCID = "0000-0001-9680-8474")),
+    person(given = "John",
+           family = "van der Hoek",
+           role = "aut",
+           email = "john.vanderhoek@adelaide.edu.au"))
+Description: Fits multivariate Gaussian-mixture proxies that are
+    Kullback-Leibler optimal to user-supplied target densities on real
+    Euclidean space. Three fitting regimes are unified under one verb:
+    (i) closed-form moment matching for a single component,
+    (ii) classical expectation-maximisation when independent samples are
+    available, and (iii) importance-sampled expectation-maximisation that
+    minimises the Kullback-Leibler divergence when the target can be
+    evaluated point-wise but not (cheaply) sampled. Closed-form
+    Gaussian-mixture operators (density, sampling, marginalisation,
+    conditioning, divergence) round out the toolkit. The conditioning
+    operator drives multiple imputation of data missing at random,
+    covering the multimodal and heteroscedastic cases a single-Gaussian
+    model cannot represent. Implements the
+    regime hierarchy of van der Hoek and Elliott (2024)
+    <doi:10.1080/07362994.2024.2372605>.
+License: MIT + file LICENSE
+URL: https://github.com/max578/proxymix,
+        https://max578.github.io/proxymix/
+BugReports: https://github.com/max578/proxymix/issues
+Encoding: UTF-8
+Language: en-AU
+Depends: R (>= 4.3)
+Imports: S7, stats, mvnfast, cli, rlang, data.table, withr
+Suggests: mclust, mice, generics, ggplot2, viridis, patchwork, knitr,
+        rmarkdown, testthat (>= 3.0.0), vdiffr, spelling, covr
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+Config/testthat/parallel: true
+Config/roxygen2/version: 8.1.0
+NeedsCompilation: no
+Packaged: 2026-09-29 21:00:43 UTC; a1222812
+Author: Max Moldovan [aut, cre] (ORCID:
+    <https://orcid.org/0000-0001-9680-8474>),
+  John van der Hoek [aut]
+Maintainer: Max Moldovan <max.moldovan@gmail.com>
+Repository: CRAN
+Date/Publication: 2026-10-08 18:30:14 UTC

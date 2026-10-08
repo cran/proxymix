@@ -1,0 +1,232 @@
+## Internal utilities. Not exported.
+
+## Stable row-wise log-sum-exp on an n-by-K matrix.
+## Callers must supply an actual matrix; we never guess the orientation.
+## NaN entries are treated as -Inf (an excluded term) everywhere, not just
+## in the row-max; a row whose maximum is +Inf returns +Inf (the sum of a
+## divergent term is divergent, not zero).
+logsumexp_rows <- function(m) {
+  if (!is.matrix(m)) {
+    cli::cli_abort("`m` must be a matrix; got {.cls {class(m)[1L]}}.")
+  }
+  n <- nrow(m)
+  if (n == 0L) return(numeric(0L))
+  m_safe <- m
+  m_safe[is.nan(m_safe)] <- -Inf
+  ## Row max as a K-pass pmax reduce: this sits on every E-step's hot path,
+  ## where the per-row vapply loop dominated at large n.
+  mx <- m_safe[, 1L]
+  for (k in seq_len(ncol(m_safe))[-1L]) mx <- pmax(mx, m_safe[, k])
+  out <- rep(-Inf, n)
+  out[is.infinite(mx) & mx > 0] <- Inf
+  finite <- is.finite(mx)
+  if (any(finite)) {
+    out[finite] <- mx[finite] +
+      log(rowSums(exp(m_safe[finite, , drop = FALSE] - mx[finite])))
+  }
+  out
+}
+
+## Unnormalised per-observation log-mixture-component evaluations.
+## Returns an n-by-K matrix where entry [i, k] is
+##   log(weights[k]) + log N(x[i, ] | means[[k]], covariances[[k]]).
+## Always a matrix, including when n == 1 or K == 1.
+gmm_log_unnorm <- function(x, weights, means, covariances) {
+  K <- length(weights)
+  n <- nrow(x)
+  out <- matrix(0, nrow = n, ncol = K)
+  log_w <- log(weights)
+  for (k in seq_len(K)) {
+    out[, k] <- log_w[k] +
+      mvnfast::dmvn(x, mu = means[[k]], sigma = covariances[[k]], log = TRUE)
+  }
+  out
+}
+
+## Closed-form Gaussian-to-Gaussian KL.
+##   KL(N(mu_a, S_a) || N(mu_b, S_b))
+##   = 0.5 * ( tr(S_b^{-1} S_a) + (mu_b - mu_a)' S_b^{-1} (mu_b - mu_a)
+##             - p + log det(S_b) - log det(S_a) ).
+kl_gauss <- function(mu_a, S_a, mu_b, S_b) {
+  p <- length(mu_a)
+  L_b <- chol(S_b)
+  S_b_inv <- chol2inv(L_b)
+  log_det_S_b <- 2 * sum(log(diag(L_b)))
+  L_a <- tryCatch(chol(S_a), error = function(e) NULL)
+  log_det_S_a <- if (!is.null(L_a)) {
+    2 * sum(log(diag(L_a)))
+  } else {
+    as.numeric(determinant(S_a, logarithm = TRUE)$modulus)
+  }
+  diff <- mu_b - mu_a
+  0.5 * (sum(diag(S_b_inv %*% S_a)) +
+           sum(diff * as.numeric(S_b_inv %*% diff)) -
+           p + log_det_S_b - log_det_S_a)
+}
+
+## Ridge a matrix to make it positive-definite-ish: S + diag(epsilon).
+## `epsilon` is absolute, either one value or one per coordinate. Callers
+## that regularise across EM iterations pass a DATA-scaled epsilon (see
+## `.data_scaled_eps()`), so the floor is invariant to the data's units but
+## constant across iterations -- a ridge relative to the component's own
+## diagonal would shrink together with a collapsing component and stop
+## flooring exactly when needed.
+ridge <- function(S, epsilon = 1e-6) {
+  S + diag(epsilon, nrow = nrow(S))
+}
+
+## Relative ridge per coordinate: epsilon times that coordinate's variance.
+## A zero or non-finite variance takes the mean of the positive ones (1 if none).
+.data_scaled_eps <- function(epsilon, data_cov_diag) {
+  s <- data_cov_diag
+  ok <- is.finite(s) & s > 0
+  s[!ok] <- if (any(ok)) mean(s[ok]) else 1
+  epsilon * s
+}
+
+## Force a covariance to be symmetric (numerical hygiene after EM updates).
+symmetrise <- function(S) 0.5 * (S + t(S))
+
+## Single metadata policy for the closed-form operators: every operator
+## result carries (a) the source fit's quality certificate, unchanged, and
+## (b) a `provenance` character vector with one entry per operation, plus
+## any operator-specific extras. Nothing else is merged forward, so stale
+## keys from earlier operations cannot masquerade as current.
+.op_result_meta <- function(g, op, extra = list()) {
+  meta <- list()
+  if (!is.null(g@metadata$quality)) meta$quality <- g@metadata$quality
+  meta$provenance <- c(g@metadata$provenance %||% character(0L), op)
+  utils::modifyList(meta, extra)
+}
+
+## Multi-source metadata policy for binary / n-ary operators. A composite
+## result is only as trustworthy as its weakest operand, so the combined
+## quality certificate takes the conservative value of each field across every
+## operand that carries one (worst-case wins): not-converged if any operand is,
+## degenerate if any operand is, and the min/max of the numeric risk fields.
+## Operands with no certificate (plain mixtures) contribute nothing. Every
+## operand's own certificate is retained under `quality_sources`, so the
+## conservative summary discards no information. Fields that do not combine
+## meaningfully (absolute ESS counts, the final KLD) are `NA` on a composite.
+.op_result_meta_many <- function(gs, op, extra = list()) {
+  quals <- lapply(gs, function(g) g@metadata$quality)
+  present <- quals[!vapply(quals, is.null, logical(1L))]
+  meta <- list()
+  if (length(present) > 0L) {
+    worst <- function(field, reduce, transform = identity) {
+      vals <- transform(vapply(present,
+                               function(q) q[[field]] %||% NA_real_, numeric(1L)))
+      if (all(is.na(vals))) NA_real_ else reduce(vals, na.rm = TRUE)
+    }
+    meta$quality <- list(
+      regime            = "composite",
+      converged         = all(vapply(present,
+                                     function(q) isTRUE(q$converged), logical(1L))),
+      degenerate        = any(vapply(present,
+                                     function(q) isTRUE(q$degenerate), logical(1L))),
+      ess               = NA_real_,
+      ess_relative      = worst("ess_relative", min),
+      min_component_ess = NA_real_,
+      max_weight        = worst("max_weight", max),
+      support_fraction  = worst("support_fraction", min),
+      kld_final         = NA_real_,
+      kld_approx        = worst("kld_approx", max),
+      validation_gap    = worst("validation_gap", max, abs),
+      heldout_kld       = worst("heldout_kld", max),
+      quality_sources   = lapply(gs, function(g) {
+        list(name = g@name, quality = g@metadata$quality)
+      })
+    )
+  }
+  provs <- unlist(lapply(gs, function(g) g@metadata$provenance %||% character(0L)))
+  meta$provenance <- c(provs, op)
+  utils::modifyList(meta, extra)
+}
+
+## Operator result names cap their nesting: a chained pipeline previously
+## grew names like observe(affine(observe(...))) without bound.
+.op_name <- function(op, g) {
+  nm <- g@name
+  if (is.null(nm) || !nzchar(nm) || nchar(nm) > 40L) nm <- "..."
+  sprintf("%s(%s)", op, nm)
+}
+
+## One-shot advisory when a downstream verb consumes a fit whose quality
+## certificate is flagged. Plain mixtures (no certificate) pass silently.
+## Relative ESS is not a criterion: with a fixed proposal it measures the
+## proposal against the target, not the fit, and does not fall as the fit
+## improves. Too few effective draws is caught by `degenerate` (ESS below
+## `min_ess`).
+.kld_limit <- 0.3
+
+## The KL check of one certificate: the held-out KL when the fit drew a
+## validation sample, otherwise `kld_approx`. A composite certificate trips
+## when any operand's certificate trips.
+.kld_misfit <- function(q) {
+  if (!is.null(q$quality_sources)) {
+    for (src in q$quality_sources) {
+      if (!is.null(src$quality)) {
+        hit <- .kld_misfit(src$quality)
+        if (!is.null(hit)) return(hit)
+      }
+    }
+    return(NULL)
+  }
+  heldout <- q$heldout_kld %||% NA_real_
+  if (is.finite(heldout)) {
+    if (heldout > .kld_limit) {
+      return(sprintf("held-out KL %s > %s", format(signif(heldout, 2L)), .kld_limit))
+    }
+    return(NULL)
+  }
+  approx <- q$kld_approx %||% NA_real_
+  if (is.finite(approx) && approx > .kld_limit) {
+    return(sprintf("kld_approx %s > %s, no validation sample",
+                   format(signif(approx, 2L)), .kld_limit))
+  }
+  NULL
+}
+
+.check_quality <- function(g, verb) {
+  q <- g@metadata$quality
+  if (is.null(q)) return(invisible(NULL))
+  misfit <- .kld_misfit(q)
+  bad <- isTRUE(q$degenerate) || isFALSE(q$converged) || !is.null(misfit)
+  if (bad) {
+    reasons <- c(
+      if (isFALSE(q$converged)) "not converged",
+      if (isTRUE(q$degenerate)) "degenerate",
+      misfit
+    )
+    rlang::inform(
+      c(sprintf(
+        "`%s` received a fit whose quality certificate is flagged (%s).",
+        verb, paste(reasons, collapse = "; ")),
+        "i" = "Downstream quantities condition on this proxy; consider refitting before relying on them."),
+      class = "proxymix_low_quality",
+      .frequency = "once",
+      .frequency_id = paste0("proxymix_low_quality_", verb)
+    )
+  }
+  invisible(NULL)
+}
+
+## Coerce x to a matrix with `p` columns. Vectors of length p become a single
+## row; vectors of length n*p become an n-by-p matrix only if n*p divides
+## cleanly *and* the user passed a matrix-like coercion intent — to avoid
+## that ambiguity we require either a matrix or a length-p vector.
+as_input_matrix <- function(x, p) {
+  if (is.matrix(x)) {
+    if (ncol(x) != p) {
+      cli::cli_abort("`x` must have {p} column(s), not {ncol(x)}.")
+    }
+    return(x)
+  }
+  if (is.numeric(x)) {
+    if (length(x) != p) {
+      cli::cli_abort("vector `x` must have length {p}, not {length(x)}.")
+    }
+    return(matrix(x, nrow = 1L))
+  }
+  cli::cli_abort("`x` must be a numeric matrix or vector.")
+}
