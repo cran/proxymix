@@ -378,7 +378,7 @@ approximate, called the target. You supply the number of variables and a
 function that returns the log of the density. Logs are used because
 density values can be extremely small. <code>banana_target()</code> is a
 ready-made target in two variables, shaped like a curved banana.</li>
-<li><code>fit_proxymix()</code> fits the proxy. It chooses one of three
+<li><code>fit_proxymix()</code> fits the proxy. It chooses one of four
 fitting methods from what you supply.</li>
 <li><code>proposal_mvt()</code> sets up a wide distribution that is easy
 to sample, from which the fitting method draws its trial points.</li>
@@ -395,16 +395,17 @@ variable when another is held at a fixed value.</li>
 <h2>Addressing the problem</h2>
 <div id="which-fitting-method-applies" class="section level3">
 <h3>Which fitting method applies</h3>
-<p>The package has three ways of fitting the bell curves, described by
-van der Hoek and Elliott (2024). <code>fit_proxymix()</code> picks one
-according to what you supply.</p>
+<p>The package has four ways of fitting the bell curves. The first three
+are described by van der Hoek and Elliott (2024), and the fourth is for
+a distribution known only through its characteristic function.
+<code>fit_proxymix()</code> picks one according to what you supply.</p>
 <table>
 <caption>How <code>fit_proxymix()</code> chooses a fitting method. The
 <code>regime</code> argument can also name one directly.</caption>
 <colgroup>
-<col width="24%" />
-<col width="64%" />
-<col width="10%" />
+<col width="31%" />
+<col width="58%" />
+<col width="9%" />
 </colgroup>
 <thead>
 <tr class="header">
@@ -431,6 +432,13 @@ together they match the data</td>
 <td align="left">Draws trial points, weights each one by the formula,
 then fits the bell curves to the weighted points</td>
 <td align="left"><code>&quot;kld&quot;</code></td>
+</tr>
+<tr class="even">
+<td align="left">Only the characteristic function, as for a stable
+law</td>
+<td align="left">Matches the characteristic function of the bell curves
+to the target’s at many frequencies</td>
+<td align="left"><code>&quot;cf&quot;</code></td>
 </tr>
 </tbody>
 </table>
@@ -670,13 +678,13 @@ Stan program.</caption>
 <td align="left">proxymix</td>
 <td align="right">0.0081 (0.0031)</td>
 <td align="right">0.00350</td>
-<td align="right">0.70</td>
+<td align="right">0.41</td>
 </tr>
 <tr class="even">
 <td align="left">NUTS draws, then mclust</td>
 <td align="right">0.0139 (0.0046)</td>
 <td align="right">0.00473</td>
-<td align="right">2.70</td>
+<td align="right">1.82</td>
 </tr>
 <tr class="odd">
 <td align="left">Laplace approximation</td>
@@ -688,13 +696,13 @@ Stan program.</caption>
 <td align="left">NUTS draws</td>
 <td align="right">–</td>
 <td align="right">0.00460</td>
-<td align="right">1.04</td>
+<td align="right">0.74</td>
 </tr>
 <tr class="odd">
 <td align="left">DEzs draws</td>
 <td align="right">–</td>
 <td align="right">0.00546</td>
-<td align="right">0.53</td>
+<td align="right">0.31</td>
 </tr>
 </tbody>
 </table>
@@ -714,9 +722,9 @@ has a KL divergence of 0.0154. That value lies 2.4 standard deviations
 above the proxymix mean in the table, using the standard deviation
 across runs shown there in brackets.</p>
 <p>The Laplace approximation was also the fastest, at under 0.01 seconds
-per run. DEzs took 0.53 seconds per run and was slightly faster than
-proxymix at 0.70, while NUTS took 1.04 and NUTS followed by
-<code>mclust</code> took 2.70 (medians on one computer, with other
+per run. DEzs took 0.31 seconds per run and was slightly faster than
+proxymix at 0.41, while NUTS took 0.74 and NUTS followed by
+<code>mclust</code> took 1.82 (medians on one computer, with other
 programs running on it at the same time).</p>
 <p>The code below runs each method once and scores it against the grid.
 It needs <code>mclust</code> and <code>BayesianTools</code> from CRAN,
@@ -850,6 +858,9 @@ with the exact operations shown above.</p>
 <p><em>Compressing a Bayesian posterior you can evaluate but not
 sample</em> applies this workflow to the result of a Bayesian
 analysis.</p>
+<p><em>Fitting a mixture to a characteristic function</em> covers the
+fourth method, for stable laws, sums of independent variables and
+filtering.</p>
 </div>
 <div id="references" class="section level2">
 <h2>References</h2>
@@ -882,7 +893,7 @@ vignette reproduces the same numbers.</p>
 <div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code></pre></div>
 <pre class="session-info"><code>#&gt; R version 4.6.1 (2026-06-24)
 #&gt; Platform: aarch64-apple-darwin23
-#&gt; Running under: macOS Tahoe 26.6.2
+#&gt; Running under: macOS Tahoe 26.7.1
 #&gt; 
 #&gt; Matrix products: default
 #&gt; BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib 
@@ -898,7 +909,7 @@ vignette reproduces the same numbers.</p>
 #&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     
 #&gt; 
 #&gt; other attached packages:
-#&gt; [1] proxymix_0.16.0
+#&gt; [1] proxymix_0.17.0
 #&gt; 
 #&gt; loaded via a namespace (and not attached):
 #&gt;  [1] sass_0.4.10         generics_0.1.4      tidyr_1.3.2        
@@ -909,23 +920,23 @@ vignette reproduces the same numbers.</p>
 #&gt; [16] jomo_2.7-6          foreach_1.5.2       jsonlite_2.0.0     
 #&gt; [19] glmnet_5.0          Matrix_1.7-6        nnet_7.3-21        
 #&gt; [22] backports_1.5.1     survival_3.8-11     purrr_1.2.2        
-#&gt; [25] viridisLite_0.4.3   scales_1.4.0        codetools_0.2-20   
-#&gt; [28] isoband_0.3.0       jquerylib_0.1.4     reformulas_0.4.4   
-#&gt; [31] Rdpack_2.6.6        cli_3.6.6           rlang_1.3.0        
-#&gt; [34] rbibutils_2.4.1     splines_4.6.1       withr_3.0.3        
-#&gt; [37] cachem_1.1.0        yaml_2.3.12         pan_2.0            
-#&gt; [40] otel_0.2.0          tools_4.6.1         nloptr_2.2.1       
-#&gt; [43] minqa_1.2.8         dplyr_1.2.1         ggplot2_4.0.3      
-#&gt; [46] boot_1.3-32         broom_1.0.13        rpart_4.1.27       
-#&gt; [49] vctrs_0.7.3         R6_2.6.1            stats4_4.6.1       
-#&gt; [52] lifecycle_1.0.5     MASS_7.3-66         pkgconfig_2.0.3    
-#&gt; [55] pillar_1.11.1       bslib_0.12.0        gtable_0.3.6       
-#&gt; [58] glue_1.8.1          data.table_1.18.6.1 Rcpp_1.1.2         
-#&gt; [61] xfun_0.60           tibble_3.3.1        tidyselect_1.2.1   
-#&gt; [64] knitr_1.51          dichromat_2.0-1     farver_2.1.2       
-#&gt; [67] nlme_3.1-171        htmltools_0.5.9     rmarkdown_2.32     
-#&gt; [70] labeling_0.4.3      compiler_4.6.1      S7_0.2.2           
-#&gt; [73] mvnfast_0.2.8</code></pre>
+#&gt; [25] viridisLite_0.4.3   scales_1.4.0        RhpcBLASctl_0.23-42
+#&gt; [28] codetools_0.2-20    isoband_0.3.0       jquerylib_0.1.4    
+#&gt; [31] reformulas_0.4.4    Rdpack_2.6.6        cli_3.6.6          
+#&gt; [34] rlang_1.3.0         rbibutils_2.4.1     splines_4.6.1      
+#&gt; [37] withr_3.0.3         cachem_1.1.0        yaml_2.3.12        
+#&gt; [40] pan_2.0             otel_0.2.0          tools_4.6.1        
+#&gt; [43] nloptr_2.2.1        minqa_1.2.8         dplyr_1.2.1        
+#&gt; [46] ggplot2_4.0.3       boot_1.3-32         broom_1.0.13       
+#&gt; [49] rpart_4.1.27        vctrs_0.7.3         R6_2.6.1           
+#&gt; [52] stats4_4.6.1        lifecycle_1.0.5     MASS_7.3-66        
+#&gt; [55] pkgconfig_2.0.3     pillar_1.11.1       bslib_0.12.0       
+#&gt; [58] gtable_0.3.6        glue_1.8.1          data.table_1.18.6.1
+#&gt; [61] Rcpp_1.1.2          xfun_0.60           tibble_3.3.1       
+#&gt; [64] tidyselect_1.2.1    knitr_1.51          dichromat_2.0-1    
+#&gt; [67] farver_2.1.2        nlme_3.1-171        htmltools_0.5.9    
+#&gt; [70] rmarkdown_2.32      labeling_0.4.3      compiler_4.6.1     
+#&gt; [73] S7_0.2.2            mvnfast_0.2.8</code></pre>
 </div>
 
 

@@ -1,3 +1,115 @@
+# proxymix 0.17.0
+
+### New features
+
+* `from_cf()` fits a Gaussian mixture to a distribution given by its
+  characteristic function, for targets with no usable density such as stable
+  laws and sums of independent variables. The fit reports its error on
+  frequencies it did not use and warns when the target has heavy tails.
+* `from_cf_elliptical()` fits normal components with a common centre and
+  proportional covariances to an elliptical characteristic function, such as
+  a multivariate Cauchy or an elliptical stable law. It needs no starting
+  value and reaches further into heavy tails than `from_cf()`: for the
+  bivariate Cauchy of its examples, the 0.99 quantiles of both coordinates
+  are within 0.02 of the exact values.
+* `from_cf_sources()` fits a linear mix of independent sources, with or
+  without Gaussian noise. It returns a list with functions for the
+  characteristic function, sampling and one-dimensional projections, not a
+  `gmm`. The separated coordinates are tested for pairwise independence with
+  the criterion of Eriksson and Koivunen (2003), reported as
+  `diagnostics$dependence`.
+* `fit_proxymix()` has a fourth regime, `"cf"`, for a target known only
+  through its characteristic function. `cf_target()` builds such a target
+  after checking the function, and `regime = "auto"` picks `"cf"` when the
+  target has a characteristic function and neither samples nor a
+  log-density. The other regimes choose as before.
+* Fits to a characteristic function carry lower and upper bounds for the
+  Kolmogorov distance to the target, computed by numerical inversion without
+  sampling, along eight one-dimensional projections (one in one dimension).
+  For `from_cf_sources()` they are for each separated coordinate. `print()`,
+  `glance()` and `gmm_fit_quality()` report them (`cf_distance`,
+  `cf_upper`). `bracket = FALSE` skips them. The bounds do not change the fit
+  or the state of the random number generator.
+* A mixture made from such a fit by an operator (`gmm_marginalise()`,
+  `gmm_product()` and the others) has `cf_heldout_rms`, `cf_distance` and
+  `cf_upper` set to `NA` in its quality record, since the bounds of the fit
+  need not hold for it. A composite keeps each operand's own values under
+  `quality_sources`.
+* `gmm_cf_distance()` returns the same bounds between a characteristic-function
+  target and any mixture along a chosen direction. The upper bound needs a
+  target whose projected characteristic function is integrable.
+* `gmm_cf()` evaluates the characteristic function of a mixture.
+* `fit_mppca_samples()` fits a mixture of probabilistic principal component
+  analysers (Tipping and Bishop, 1999): each component covariance is a rank-`q`
+  term plus equal noise in every direction. It can be fitted when a component
+  holds fewer points than there are variables, where a full-covariance fit is
+  singular, and returns an ordinary fitted mixture.
+
+### Behaviour changes
+
+* `fit_em_samples()` checks the fit it returns for a component that has
+  collapsed onto a few samples: fewer effective samples than the dimension
+  plus one, or a variance held up by the ridge. Such a fit is marked
+  degenerate in its quality record and raises a warning of class
+  `proxymix_component_collapse`. The log-likelihood decrease warning is now
+  raised only for the returned fit, not for a discarded start. `select_N()`
+  reports collapse per candidate in a `collapsed` column and warns only when
+  the chosen fit has collapsed.
+
+* `from_kde()` now defaults to `bandwidth = "plugin"`, the Sheather-Jones
+  plug-in bandwidth of each variable (`stats::bw.SJ()`), in place of
+  Silverman's rule. On the galaxy velocities the held-out log-likelihood of the
+  compressed estimate went from about 0.13 to about 0.06 nats below that of the
+  full `ks::kde()` estimate, and on two simulated two-dimensional mixtures the
+  Kullback-Leibler divergence to the truth fell by a factor of about three.
+  A variable with fewer distinct values than half the number of points keeps
+  Silverman's rule. `bandwidth = "silverman"` gives the 0.16.0 results.
+
+* `glance()` has three more columns, `cf_heldout_rms`, `cf_distance` and
+  `cf_upper`, which are `NA` outside regime `"cf"`.
+
+* `gmm_cf_variance()` and `gmm_cf_tail_prob()` now return the variance and the
+  tail probability of a per-unit counterfactual law instead of an error. They
+  rest on the same assumption as `gmm_cf_mean()`: the unit keeps its structural
+  residual when the treatment changes. A printed counterfactual law shows its
+  variance.
+
+### Corrections
+
+* The k-means start used by `fit_kld_em()`, `from_kde()` and the other
+  importance-sampling fits no longer passes on the "Quick-TRANSfer stage steps
+  exceeded" warning from one of its ten starts. If the start that is kept hit
+  that limit, the clustering is redone with MacQueen's algorithm.
+* Printing the result of `gmm_eos_test()`, `gmm_fit_ensemble()`,
+  `gmm_evidence()`, `select_N()` and the other functions with their own print
+  method now gives the short summary. In 0.16.0 these printed as raw lists,
+  because the method was not found when `print()` was called from outside the
+  package.
+* `gmm_impute()` with `censored()` could impute a value beyond the detection
+  limit when the limit lay far in the tail of a component's conditional
+  normal. Such draws now stay inside the limit. All other draws are unchanged.
+* `gmm_impute()` could stop with "the leading minor ... is not positive" when
+  choosing the number of components, if one candidate component held only a
+  few rows. Rounding in its conditional covariance is now removed, and the
+  output is unchanged when this does not occur.
+* The help for `gmm_counterfactual()`, `gmm_cf_mean()` and
+  `proxy_retrospective_uplift()` no longer calls the per-unit counterfactual
+  mean identified. It assumes the unit keeps its structural residual when the
+  treatment changes; if the residual were redrawn, the same mixture would give
+  a different mean. A printed counterfactual law now labels its mean
+  "residual kept".
+
+### Documentation and CI
+
+* New vignette, *Fitting a mixture to a characteristic function*: a stable
+  law with no closed-form density, a sum of independent variables, two
+  targets in two dimensions and a filtering step, each checked against an
+  independent computation. The README has a short example.
+* The package has a logo.
+* README lists related packages and carries R-CMD-check, coverage and
+  r-universe badges.
+* CI runs lintr (report-only) and test coverage.
+
 # proxymix 0.16.0
 
 ### Changes to defaults
@@ -120,7 +232,7 @@
   is asymptotic, assumes stationary ergodic innovations, and can over-reject
   in short series. It also states how `method = "andrews"` differs from
   Andrews' (2003) P-test: its p-value counts the tested block, and the block
-  statistics are computed at the supplied model rather than re-estimated.
+  statistics are computed at the supplied model without re-estimating it.
 * The `mnar()` and `proxy_mnar_sensitivity()` help no longer says the data
   cannot identify the missing-not-at-random slope. Under the mixture
   selection model the observed data inform the slope through the assumed

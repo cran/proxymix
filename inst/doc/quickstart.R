@@ -39,16 +39,19 @@ regime_tbl <- data.frame(
   have = c(
     "Data, and you want one bell curve",
     "Data, and you want several bell curves",
-    "Only the formula, no data"
+    "Only the formula, no data",
+    "Only the characteristic function, as for a stable law"
   ),
   does = c(
     "Fits one bell curve with the same centre and spread as the data",
     paste("Moves and reshapes the bell curves, step by step, until together",
           "they match the data"),
     paste("Draws trial points, weights each one by the formula, then fits",
-          "the bell curves to the weighted points")
+          "the bell curves to the weighted points"),
+    paste("Matches the characteristic function of the bell curves to the",
+          "target's at many frequencies")
   ),
-  setting = c("`\"moment\"`", "`\"sample\"`", "`\"kld\"`"),
+  setting = c("`\"moment\"`", "`\"sample\"`", "`\"kld\"`", "`\"cf\"`"),
   stringsAsFactors = FALSE
 )
 knitr::kable(

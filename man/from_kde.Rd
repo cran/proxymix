@@ -7,7 +7,7 @@
 from_kde(
   samples,
   N = 3L,
-  bandwidth = "silverman",
+  bandwidth = "plugin",
   proposal = NULL,
   is_size = NULL,
   max_iter = 100L,
@@ -28,10 +28,18 @@ from_kde(
 
 \item{N}{Number of mixture components in the proxy.}
 
-\item{bandwidth}{Either \code{"silverman"}, \code{"scott"}, a positive numeric
-scalar (absolute bandwidth applied to every coordinate), or a
+\item{bandwidth}{Either \code{"plugin"}, \code{"silverman"}, \code{"scott"}, a positive
+numeric scalar (absolute bandwidth applied to every coordinate), or a
 length-\code{p} positive numeric vector of per-coordinate absolute
-bandwidths. Default \code{"silverman"}.}
+bandwidths. Default \code{"plugin"}: the Sheather-Jones plug-in bandwidth
+(\code{\link[stats:bw.SJ]{stats::bw.SJ()}}) of each coordinate. A coordinate with fewer distinct
+values than half the number of points gets Silverman's rule instead,
+because the plug-in bandwidth shrinks towards zero on heavily tied data.
+Silverman's rule smooths more and can merge nearby modes. The diagonal
+multivariate plug-in \code{sqrt(diag(ks::Hpi.diag(samples)))} can be passed
+as a numeric vector. It did better than \code{"plugin"} on a
+simulated two-dimensional mixture with three overlapping components,
+and its cost grows with the square of the sample size.}
 
 \item{proposal}{Optional \link{is_proposal}. Default is a multivariate-t
 centred at \code{colMeans(samples)}, scale = ridge(cov(samples)) +
@@ -87,7 +95,7 @@ sampled in closed form as it stands. \code{from_kde()} is a \strong{compression}
 it replaces the \code{n} components with the closest \code{N}-component mixture in
 the Kullback-Leibler sense, with \code{N} much smaller than \code{n}. Density
 evaluation, storage and the operator calculus then cost in proportion to
-\code{N} rather than \code{n} (products and convolutions of two mixtures have as
+\code{N} (products and convolutions of two mixtures have as
 many components as the product of their counts). Bias inherited from the
 KDE is reproduced in the proxy; the bandwidth controls the bias-variance
 trade-off.
@@ -112,6 +120,10 @@ Other fitting:
 \code{\link[=fit_em_samples]{fit_em_samples()}},
 \code{\link[=fit_kld_em]{fit_kld_em()}},
 \code{\link[=fit_moment_match]{fit_moment_match()}},
+\code{\link[=fit_mppca_samples]{fit_mppca_samples()}},
+\code{\link[=from_cf]{from_cf()}},
+\code{\link[=from_cf_elliptical]{from_cf_elliptical()}},
+\code{\link[=from_cf_sources]{from_cf_sources()}},
 \code{\link[=from_objective]{from_objective()}},
 \code{\link[=select_N]{select_N()}}
 }

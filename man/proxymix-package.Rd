@@ -4,9 +4,11 @@
 \name{proxymix-package}
 \alias{proxymix}
 \alias{proxymix-package}
-\title{proxymix: Kullback-Leibler Optimal Gaussian Mixture Proxies for Target Densities}
+\title{proxymix: Gaussian Mixture Proxies for Densities and Characteristic Functions}
 \description{
-Fits multivariate Gaussian-mixture proxies that are Kullback-Leibler optimal to user-supplied target densities on real Euclidean space. Three fitting regimes are unified under one verb: (i) closed-form moment matching for a single component, (ii) classical expectation-maximisation when independent samples are available, and (iii) importance-sampled expectation-maximisation that minimises the Kullback-Leibler divergence when the target can be evaluated point-wise but not (cheaply) sampled. Closed-form Gaussian-mixture operators (density, sampling, marginalisation, conditioning, divergence) round out the toolkit. The conditioning operator drives multiple imputation of data missing at random, covering the multimodal and heteroscedastic cases a single-Gaussian model cannot represent. Implements the regime hierarchy of van der Hoek and Elliott (2024) \doi{10.1080/07362994.2024.2372605}.
+\if{html}{\figure{logo.png}{options: style='float: right' alt='logo' width='120'}}
+
+Fits multivariate Gaussian-mixture proxies to target distributions on real Euclidean space, given by a density, by samples, or by a characteristic function. Four fitting regimes are unified under one verb: (i) closed-form moment matching for a single component, (ii) classical expectation-maximisation when independent samples are available, (iii) importance-sampled expectation-maximisation that minimises the Kullback-Leibler divergence when the target can be evaluated point-wise but not (cheaply) sampled, and (iv) a least-squares fit to the characteristic function when only that is known, with numerical bounds on the Kolmogorov distance along one-dimensional projections. Closed-form Gaussian-mixture operators (density, sampling, marginalisation, conditioning, divergence) round out the toolkit. The conditioning operator drives multiple imputation of data missing at random, covering the multimodal and heteroscedastic cases a single-Gaussian model cannot represent. Implements the regime hierarchy of van der Hoek and Elliott (2024) \doi{10.1080/07362994.2024.2372605}.
 }
 \seealso{
 Useful links:

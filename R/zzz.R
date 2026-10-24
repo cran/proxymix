@@ -26,3 +26,7 @@
                      envir = asNamespace("generics"))
   }
 }
+
+## `S7::method(print, cls) <- f` leaves a copy of base::print in the namespace;
+## the NAMESPACE S3 print methods would register against it, not base::print.
+rm("print")

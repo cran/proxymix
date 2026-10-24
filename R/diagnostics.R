@@ -165,7 +165,9 @@ ess_summary <- function(fit) {
 #' Downstream verbs read the same certificate and raise a one-shot
 #' advisory (class `proxymix_low_quality`) when the source fit is flagged. A
 #' fit is flagged when it did not converge, when it is degenerate (fewer
-#' effective importance draws than `min_ess`), or when its held-out KL
+#' effective importance draws than `min_ess`, or, for an EM fit to samples,
+#' a component that collapsed onto a few samples; see [fit_em_samples()]), or
+#' when its held-out KL
 #' divergence `heldout_kld` exceeds 0.3 nats. A fit made with
 #' `validation_size = 0` has no held-out estimate, and is flagged when
 #' `kld_approx` exceeds 0.3. That fallback misses a proxy wider than the
@@ -195,7 +197,14 @@ ess_summary <- function(fit) {
 #'   `log f - log g` over the fitting draws. It approximates the KL
 #'   divergence only when the proxy is close to the target, and it does not
 #'   depend on the target's normalising constant. Both are `NA` outside
-#'   regime `"kld"`.
+#'   regime `"kld"`. A fit to a characteristic function (regime `"cf"`)
+#'   adds `cf_heldout_rms`, `cf_distance` and `cf_upper`: the held-out
+#'   root mean square error of the characteristic function and the largest
+#'   lower and upper bounds for the Kolmogorov distance over the checked
+#'   directions (see [from_cf()]). On a mixture made from such a fit by an
+#'   operator, these fields are `NA`, since the bounds were computed for the
+#'   fit and need not hold for the new mixture; [gmm_cf_distance()] gives
+#'   bounds for it directly.
 #' @family diagnostics
 #' @export
 #' @examples

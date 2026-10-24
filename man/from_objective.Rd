@@ -41,7 +41,7 @@ the proxy concentrates on the maxima.}
 
 \item{temperature}{Optional control of the cooling ladder. \code{NULL} (the
 default) derives a ladder from the range \code{r} of \code{objective} over a
-uniform probe of the box: from \code{r / 2} down to \code{r / 80} when
+uniform probe of the box: from \code{r/2} down to \code{r/80} when
 \code{scale = "objective"}, and from \code{max(r / 2, 1)} down to 1 when
 \code{scale = "loglik"}. A positive scalar sets the final (lowest)
 temperature; a length-2 numeric \code{c(high, low)} sets both ends
@@ -151,6 +151,10 @@ Other fitting:
 \code{\link[=fit_em_samples]{fit_em_samples()}},
 \code{\link[=fit_kld_em]{fit_kld_em()}},
 \code{\link[=fit_moment_match]{fit_moment_match()}},
+\code{\link[=fit_mppca_samples]{fit_mppca_samples()}},
+\code{\link[=from_cf]{from_cf()}},
+\code{\link[=from_cf_elliptical]{from_cf_elliptical()}},
+\code{\link[=from_cf_sources]{from_cf_sources()}},
 \code{\link[=from_kde]{from_kde()}},
 \code{\link[=select_N]{select_N()}}
 }

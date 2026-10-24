@@ -29,7 +29,14 @@ same draws. \code{kld_approx} is half the importance-weighted variance of
 \verb{log f - log g} over the fitting draws. It approximates the KL
 divergence only when the proxy is close to the target, and it does not
 depend on the target's normalising constant. Both are \code{NA} outside
-regime \code{"kld"}.
+regime \code{"kld"}. A fit to a characteristic function (regime \code{"cf"})
+adds \code{cf_heldout_rms}, \code{cf_distance} and \code{cf_upper}: the held-out
+root mean square error of the characteristic function and the largest
+lower and upper bounds for the Kolmogorov distance over the checked
+directions (see \code{\link[=from_cf]{from_cf()}}). On a mixture made from such a fit by an
+operator, these fields are \code{NA}, since the bounds were computed for the
+fit and need not hold for the new mixture; \code{\link[=gmm_cf_distance]{gmm_cf_distance()}} gives
+bounds for it directly.
 }
 \description{
 Returns the fit-quality certificate: a small list recording the fitting
@@ -50,7 +57,9 @@ chain of operations that produced it.
 Downstream verbs read the same certificate and raise a one-shot
 advisory (class \code{proxymix_low_quality}) when the source fit is flagged. A
 fit is flagged when it did not converge, when it is degenerate (fewer
-effective importance draws than \code{min_ess}), or when its held-out KL
+effective importance draws than \code{min_ess}, or, for an EM fit to samples,
+a component that collapsed onto a few samples; see \code{\link[=fit_em_samples]{fit_em_samples()}}), or
+when its held-out KL
 divergence \code{heldout_kld} exceeds 0.3 nats. A fit made with
 \code{validation_size = 0} has no held-out estimate, and is flagged when
 \code{kld_approx} exceeds 0.3. That fallback misses a proxy wider than the
@@ -72,6 +81,7 @@ Other diagnostics:
 \code{\link[=ess_summary]{ess_summary()}},
 \code{\link[=ess_trace]{ess_trace()}},
 \code{\link[=gmm_anneal_path]{gmm_anneal_path()}},
+\code{\link[=gmm_cf_distance]{gmm_cf_distance()}},
 \code{\link[=gmm_conditional_entropy]{gmm_conditional_entropy()}},
 \code{\link[=gmm_entropy]{gmm_entropy()}},
 \code{\link[=gmm_evidence]{gmm_evidence()}},

@@ -29,7 +29,8 @@ fits).}
 \value{
 A list of class \code{proxymix_selection}: \code{best_n} (the chosen
 count), \code{best_fit} (its \link{gmm_fit}), and \code{table} (one row per
-candidate with the criterion values).
+candidate with the criterion values; for regime \code{"sample"} also a
+\code{collapsed} column marking fits with a collapsed component).
 }
 \description{
 Fits every candidate component count and chooses one by a
@@ -53,6 +54,10 @@ Other fitting:
 \code{\link[=fit_em_samples]{fit_em_samples()}},
 \code{\link[=fit_kld_em]{fit_kld_em()}},
 \code{\link[=fit_moment_match]{fit_moment_match()}},
+\code{\link[=fit_mppca_samples]{fit_mppca_samples()}},
+\code{\link[=from_cf]{from_cf()}},
+\code{\link[=from_cf_elliptical]{from_cf_elliptical()}},
+\code{\link[=from_cf_sources]{from_cf_sources()}},
 \code{\link[=from_kde]{from_kde()}},
 \code{\link[=from_objective]{from_objective()}}
 }

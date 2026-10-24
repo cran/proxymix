@@ -374,10 +374,12 @@ other R packages.</p>
 <li><code>from_kde()</code> builds the kernel density estimate from a
 data matrix and compresses it into an <code>N</code>-component Gaussian
 mixture, a sum of <code>N</code> normal distributions. Its
-<code>bandwidth</code> argument takes a rule of thumb by name
-(<code>&quot;silverman&quot;</code> or <code>&quot;scott&quot;</code>, after Silverman,
-1986, and Scott, 1992) or numbers, a single number for all variables or
-one number per variable.</li>
+<code>bandwidth</code> argument takes a rule by name or numbers, a
+single number for all variables or one number per variable. The default,
+<code>&quot;plugin&quot;</code>, is the Sheather-Jones plug-in bandwidth of each
+variable (Sheather and Jones, 1991). The rules of thumb
+<code>&quot;silverman&quot;</code> and <code>&quot;scott&quot;</code> (Silverman, 1986, and
+Scott, 1992) smooth more.</li>
 <li><code>from_kde()</code> fits the proxy with the package’s method for
 a density that can be evaluated but not sampled (van der Hoek and
 Elliott, 2024), described in <em>Fitting a proxy to a density you cannot
@@ -716,49 +718,49 @@ fit is the mean time to fit one dataset.</caption>
 <td align="left">ks</td>
 <td align="right">1.689 (0.042)</td>
 <td align="right"></td>
-<td align="right">0.197</td>
+<td align="right">0.121</td>
 </tr>
 <tr class="even">
 <td align="left">KernSmooth</td>
 <td align="right">1.689 (0.042)</td>
 <td align="right">-0.0004 (0.0002)</td>
-<td align="right">0.011</td>
+<td align="right">0.008</td>
 </tr>
 <tr class="odd">
 <td align="left">np</td>
 <td align="right">1.666 (0.042)</td>
 <td align="right">-0.0227 (0.0089)</td>
-<td align="right">0.256</td>
+<td align="right">0.165</td>
 </tr>
 <tr class="even">
 <td align="left">proxymix, 3 components</td>
 <td align="right">1.315 (0.037)</td>
 <td align="right">-0.3742 (0.0209)</td>
-<td align="right">1.007</td>
+<td align="right">0.587</td>
 </tr>
 <tr class="odd">
 <td align="left">proxymix, 5 components</td>
 <td align="right">1.525 (0.040)</td>
 <td align="right">-0.1637 (0.0190)</td>
-<td align="right">1.180</td>
+<td align="right">0.741</td>
 </tr>
 <tr class="even">
 <td align="left">proxymix, 8 components</td>
 <td align="right">1.692 (0.046)</td>
 <td align="right">0.0028 (0.0163)</td>
-<td align="right">1.549</td>
+<td align="right">0.931</td>
 </tr>
 <tr class="odd">
 <td align="left">mclust, components by BIC</td>
 <td align="right">0.969 (0.043)</td>
 <td align="right">-0.7197 (0.0468)</td>
-<td align="right">0.629</td>
+<td align="right">0.392</td>
 </tr>
 <tr class="even">
 <td align="left">mixtools, 3 components</td>
 <td align="right">0.776 (0.108)</td>
 <td align="right">-0.9127 (0.1164)</td>
-<td align="right">9.333</td>
+<td align="right">5.612</td>
 </tr>
 </tbody>
 </table>
@@ -773,19 +775,19 @@ thousandths. Unlike mclust, mixtools did not have to choose the number
 of components. The true density in this design is itself a mixture of
 three normal distributions, which favours every method that fits a
 mixture.</p>
-<p>proxymix took 1.01 to 1.55 seconds per fit, slower than ks (0.20), np
-(0.26), KernSmooth (0.011) and mclust (0.63), and faster than mixtools
-(9.3). Query times were measured on the Old Faithful data (Azzalini and
+<p>proxymix took 0.59 to 0.93 seconds per fit, slower than ks (0.12), np
+(0.17), KernSmooth (0.008) and mclust (0.39), and faster than mixtools
+(5.6). Query times were measured on the Old Faithful data (Azzalini and
 Bowman, 1990) and the Palmer penguins data (Gorman et al., 2014; Horst
 et al., 2022), as the median of five timings on one computer, averaged
 over the two datasets. A query here is the conditional mean and the 90%
 conditional quantile of one variable given the other. On the
-three-component proxy a query took 0.46 milliseconds (ms). That is about
-32 times faster than the 14.8 ms for the ks estimate evaluated on a grid
-of 401 points, and about 19 times slower than the 0.025 ms for the
+three-component proxy a query took 0.34 milliseconds (ms). That is about
+34 times faster than the 11.6 ms for the ks estimate evaluated on a grid
+of 401 points, and about 17 times slower than the 0.020 ms for the
 KernSmooth grid. Queries on the mixtures from mclust and from mixtools,
-here with two components, took 0.44 and 0.37 ms, and queries on np took
-1.67 ms.</p>
+here with two components, took 0.34 and 0.28 ms, and queries on np took
+1.30 ms.</p>
 <p>The code below fits one simulated dataset with all six packages and
 computes the integrated squared error of each. It repeats the simulation
 code for a single dataset. It needs ks, np, mclust and mixtools from
@@ -957,6 +959,9 @@ Practice, and Visualization.</em> Wiley.</p>
 <p>Scrucca, L., Fop, M., Murphy, T. B. and Raftery, A. E. (2016).
 <em>mclust 5: Clustering, classification and density estimation using
 Gaussian finite mixture models.</em> The R Journal 8(1), 289–317. <a href="https://doi.org/10.32614/RJ-2016-021" class="uri">https://doi.org/10.32614/RJ-2016-021</a>.</p>
+<p>Sheather, S. J. and Jones, M. C. (1991). A reliable data-based
+bandwidth selection method for kernel density estimation. <em>Journal of
+the Royal Statistical Society, Series B</em>, 53(3), 683–690. <a href="https://doi.org/10.1111/j.2517-6161.1991.tb01857.x" class="uri">https://doi.org/10.1111/j.2517-6161.1991.tb01857.x</a></p>
 <p>Silverman, B. W. (1986). <em>Density Estimation for Statistics and
 Data Analysis.</em> Chapman and Hall.</p>
 <p>Wand, M. P. and Jones, M. C. (1995). <em>Kernel Smoothing.</em>
@@ -968,13 +973,13 @@ Chapman and Hall.</p>
 <code>from_kde()</code> call passes <code>seed = 1L</code>, so the
 weighted draws are reproducible. <code>hellinger_mc()</code> uses its
 own <code>seed = 1L</code>. The comparison is read from stored results
-of a simulation run under proxymix 0.16.0, ks 1.15.3, np 0.70-5,
+of a simulation run under proxymix 0.17.0, ks 1.15.3, np 0.70-5,
 KernSmooth 2.23-27, mclust 6.1.3 and mixtools 2.0.0.1, which took about
-26 minutes on one core.</p>
+16 minutes on one core.</p>
 <div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code></pre></div>
 <pre class="session-info"><code>#&gt; R version 4.6.1 (2026-06-24)
 #&gt; Platform: aarch64-apple-darwin23
-#&gt; Running under: macOS Tahoe 26.6.2
+#&gt; Running under: macOS Tahoe 26.7.1
 #&gt; 
 #&gt; Matrix products: default
 #&gt; BLAS:   /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib 
@@ -990,20 +995,24 @@ KernSmooth 2.23-27, mclust 6.1.3 and mixtools 2.0.0.1, which took about
 #&gt; [1] stats     graphics  grDevices utils     datasets  methods   base     
 #&gt; 
 #&gt; other attached packages:
-#&gt; [1] proxymix_0.16.0
+#&gt; [1] proxymix_0.17.0
 #&gt; 
 #&gt; loaded via a namespace (and not attached):
-#&gt;  [1] mvnfast_0.2.8      gtable_0.3.6       jsonlite_2.0.0     dplyr_1.2.1       
-#&gt;  [5] compiler_4.6.1     tidyselect_1.2.1   Rcpp_1.1.2         dichromat_2.0-1   
-#&gt;  [9] jquerylib_0.1.4    scales_1.4.0       yaml_2.3.12        fastmap_1.2.0     
-#&gt; [13] ggplot2_4.0.3      R6_2.6.1           labeling_0.4.3     generics_0.1.4    
-#&gt; [17] isoband_0.3.0      knitr_1.51         tibble_3.3.1       bslib_0.12.0      
-#&gt; [21] pillar_1.11.1      RColorBrewer_1.1-3 rlang_1.3.0        cachem_1.1.0      
-#&gt; [25] xfun_0.60          sass_0.4.10        S7_0.2.2           otel_0.2.0        
-#&gt; [29] viridisLite_0.4.3  cli_3.6.6          withr_3.0.3        magrittr_2.0.5    
-#&gt; [33] digest_0.6.39      grid_4.6.1         lifecycle_1.0.5    vctrs_0.7.3       
-#&gt; [37] evaluate_1.0.5     glue_1.8.1         farver_2.1.2       rmarkdown_2.32    
-#&gt; [41] tools_4.6.1        pkgconfig_2.0.3    htmltools_0.5.9</code></pre>
+#&gt;  [1] mvnfast_0.2.8       gtable_0.3.6        jsonlite_2.0.0     
+#&gt;  [4] dplyr_1.2.1         compiler_4.6.1      tidyselect_1.2.1   
+#&gt;  [7] Rcpp_1.1.2          dichromat_2.0-1     jquerylib_0.1.4    
+#&gt; [10] scales_1.4.0        RhpcBLASctl_0.23-42 yaml_2.3.12        
+#&gt; [13] fastmap_1.2.0       ggplot2_4.0.3       R6_2.6.1           
+#&gt; [16] labeling_0.4.3      generics_0.1.4      isoband_0.3.0      
+#&gt; [19] knitr_1.51          tibble_3.3.1        bslib_0.12.0       
+#&gt; [22] pillar_1.11.1       RColorBrewer_1.1-3  rlang_1.3.0        
+#&gt; [25] cachem_1.1.0        xfun_0.60           sass_0.4.10        
+#&gt; [28] S7_0.2.2            otel_0.2.0          viridisLite_0.4.3  
+#&gt; [31] cli_3.6.6           withr_3.0.3         magrittr_2.0.5     
+#&gt; [34] digest_0.6.39       grid_4.6.1          lifecycle_1.0.5    
+#&gt; [37] vctrs_0.7.3         evaluate_1.0.5      glue_1.8.1         
+#&gt; [40] farver_2.1.2        rmarkdown_2.32      tools_4.6.1        
+#&gt; [43] pkgconfig_2.0.3     htmltools_0.5.9</code></pre>
 </div>
 
 
